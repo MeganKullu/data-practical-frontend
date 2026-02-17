@@ -1,4 +1,4 @@
-import { Component, inject, ChangeDetectorRef } from '@angular/core';
+import { Component, inject, ChangeDetectorRef, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { StudentService } from '../../services/student.service';
 import { JobInfo } from '../../models';
@@ -35,12 +35,16 @@ import { JobInfo } from '../../models';
         {{ isProcessing ? 'Uploading...' : 'Upload to Database' }}
       </button>
 
-      @if (isProcessing && jobInfo) {
+      @if (isProcessing) {
         <div class="progress-section">
           <div class="progress-bar">
-            <div class="fill" [style.width.%]="jobInfo.progress"></div>
+            <div class="fill" [style.width.%]="jobInfo?.progress || 0"></div>
           </div>
-          <p>{{ jobInfo.progress }}% - {{ jobInfo.processedCount | number }} / {{ jobInfo.totalCount | number }} records</p>
+          @if (jobInfo) {
+            <p>{{ jobInfo.progress }}% - {{ jobInfo.processedCount | number }} / {{ jobInfo.totalCount | number }} records</p>
+          } @else {
+            <p>Starting...</p>
+          }
         </div>
       }
 
@@ -49,12 +53,16 @@ import { JobInfo } from '../../models';
           <strong>Done!</strong> Records saved to database successfully.
           <br/>
           <small>{{ jobInfo?.result }}</small>
+          <br/>
+          <small>Completed in {{ elapsedTime }}</small>
         </div>
       }
 
       @if (jobInfo?.status === 'FAILED') {
         <div class="status error">
           <strong>Error:</strong> {{ jobInfo?.result }}
+          <br/>
+          <small>Failed after {{ elapsedTime }}</small>
         </div>
       }
 
@@ -78,7 +86,7 @@ import { JobInfo } from '../../models';
     }
   `]
 })
-export class UploadComponent {
+export class UploadComponent implements OnDestroy {
   private studentService = inject(StudentService);
   private cdr = inject(ChangeDetectorRef);
 
@@ -86,8 +94,10 @@ export class UploadComponent {
   isProcessing = false;
   jobInfo: JobInfo | null = null;
   errorMessage = '';
+  elapsedTime = '';
 
   private pollingInterval: any;
+  private startTime: number = 0;
 
   onFileSelected(event: Event) {
     const input = event.target as HTMLInputElement;
@@ -110,6 +120,9 @@ export class UploadComponent {
     this.isProcessing = true;
     this.jobInfo = null;
     this.errorMessage = '';
+    this.elapsedTime = '';
+    this.startTime = Date.now();
+    this.cdr.detectChanges();
 
     this.studentService.uploadCsvToDatabase(this.selectedFile).subscribe({
       next: (response) => {
@@ -118,65 +131,70 @@ export class UploadComponent {
         } else {
           this.errorMessage = response.message;
           this.isProcessing = false;
+          this.cdr.detectChanges();
         }
       },
       error: (err) => {
         this.errorMessage = 'Failed to start upload: ' + (err.message || 'Unknown error');
         this.isProcessing = false;
+        this.cdr.detectChanges();
       }
     });
   }
 
   private startPolling(jobId: string) {
-    console.log('[Upload] Starting polling for jobId:', jobId);
-
-    // Poll immediately first
     this.pollStatus(jobId);
 
-    // Poll again after 2 seconds to catch fast jobs
     setTimeout(() => {
       if (this.isProcessing) {
         this.pollStatus(jobId);
       }
     }, 2000);
 
-    // Then poll every 10 seconds
     this.pollingInterval = setInterval(() => {
       this.pollStatus(jobId);
     }, 10000);
   }
 
   private pollStatus(jobId: string) {
-    console.log('[Upload] Polling status for jobId:', jobId);
-
     this.studentService.getJobStatus(jobId).subscribe({
       next: (response) => {
-        console.log('[Upload] Status response:', response);
-
         if (response.success) {
           this.jobInfo = response.data;
-          console.log('[Upload] Progress:', this.jobInfo.progress, '%');
-          console.log('[Upload] Processed:', this.jobInfo.processedCount, '/', this.jobInfo.totalCount);
 
           if (this.jobInfo.status === 'COMPLETED' || this.jobInfo.status === 'FAILED') {
-            console.log('[Upload] Job finished with status:', this.jobInfo.status);
+            this.elapsedTime = this.formatElapsedTime(Date.now() - this.startTime);
             this.stopPolling();
             this.isProcessing = false;
           }
 
           this.cdr.detectChanges();
-        } else {
-          console.warn('[Upload] Response not successful:', response);
         }
       },
       error: (err) => {
-        console.error('[Upload] Polling error:', err);
         this.errorMessage = 'Failed to check status: ' + err.message;
+        this.elapsedTime = this.formatElapsedTime(Date.now() - this.startTime);
         this.stopPolling();
         this.isProcessing = false;
         this.cdr.detectChanges();
       }
     });
+  }
+
+  private formatElapsedTime(ms: number): string {
+    const seconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+
+    if (hours > 0) {
+      return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
+    } else if (minutes > 0) {
+      return `${minutes}m ${seconds % 60}s`;
+    } else if (seconds > 0) {
+      return `${seconds}.${Math.floor((ms % 1000) / 100)}s`;
+    } else {
+      return `${ms}ms`;
+    }
   }
 
   private stopPolling() {

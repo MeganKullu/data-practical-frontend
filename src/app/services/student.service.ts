@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { ApiResponse, JobInfo, Student, StudentClass, Page, ExportResponse } from '../models';
+import { environment } from '../../environments/environment';
 
 @Injectable({
   providedIn: 'root'
@@ -9,8 +10,8 @@ import { ApiResponse, JobInfo, Student, StudentClass, Page, ExportResponse } fro
 export class StudentService {
   private http = inject(HttpClient);
 
-  // Base URL 
-  private apiUrl = '/api/students';
+  // Base URL from environment
+  private apiUrl = environment.apiUrl;
 
   // A) GENERATE EXCEL
   /**

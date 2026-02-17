@@ -1,8 +1,8 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { StudentService } from '../../services/student.service';
-import { Student, StudentClass, STUDENT_CLASSES, Page } from '../../models';
+import { Student, StudentClass, STUDENT_CLASSES } from '../../models';
 
 @Component({
   selector: 'app-report',
@@ -23,15 +23,11 @@ import { Student, StudentClass, STUDENT_CLASSES, Page } from '../../models';
             placeholder="Enter ID..."
             (keyup.enter)="search()"
           />
-          <button class="btn btn-primary" (click)="search()">Search</button>
-          @if (searchId) {
-            <button class="btn btn-secondary" (click)="clearSearch()">Clear</button>
-          }
         </div>
 
         <div class="filter-group">
           <label for="classFilter">Filter by Class</label>
-          <select id="classFilter" [(ngModel)]="selectedClass" (change)="search()">
+          <select id="classFilter" [(ngModel)]="selectedClass">
             <option [ngValue]="undefined">All Classes</option>
             @for (cls of classes; track cls) {
               <option [ngValue]="cls">{{ cls }}</option>
@@ -39,15 +35,48 @@ import { Student, StudentClass, STUDENT_CLASSES, Page } from '../../models';
           </select>
         </div>
 
+        <div class="filter-group btn-group">
+          <label>&nbsp;</label>
+          <div class="btn-row">
+            <button class="btn btn-primary" (click)="search()">Search</button>
+            @if (hasSearched) {
+              <button class="btn btn-secondary" (click)="clearSearch()">Clear</button>
+            }
+          </div>
+        </div>
+
         <div class="export-group">
           <label>Export</label>
           <div class="export-buttons">
-            <button class="btn btn-secondary" (click)="exportCsv()" [disabled]="exporting">CSV</button>
-            <button class="btn btn-secondary" (click)="exportExcel()" [disabled]="exporting">Excel</button>
-            <button class="btn btn-secondary" (click)="exportPdf()" [disabled]="exporting">PDF</button>
+            <button
+              class="btn btn-secondary"
+              (click)="exportCsv()"
+              [disabled]="exporting || !hasSearched"
+            >
+              {{ exportingType === 'csv' ? 'Generating...' : 'CSV' }}
+            </button>
+            <button
+              class="btn btn-secondary"
+              (click)="exportExcel()"
+              [disabled]="exporting || !hasSearched"
+            >
+              {{ exportingType === 'excel' ? 'Generating...' : 'Excel' }}
+            </button>
+            <button
+              class="btn btn-secondary"
+              (click)="exportPdf()"
+              [disabled]="exporting || !hasSearched"
+            >
+              {{ exportingType === 'pdf' ? 'Generating...' : 'PDF' }}
+            </button>
           </div>
         </div>
       </div>
+
+      <!-- Initial state - before any search -->
+      @if (!hasSearched && !loading) {
+        <div class="status info">Use the filters above and click Search to find students.</div>
+      }
 
       @if (loading) {
         <div class="status info">Loading...</div>
@@ -62,7 +91,7 @@ import { Student, StudentClass, STUDENT_CLASSES, Page } from '../../models';
       }
 
       <!-- Data Table -->
-      @if (!loading && students.length > 0) {
+      @if (!loading && hasSearched && students.length > 0) {
         <table>
           <thead>
             <tr>
@@ -118,8 +147,8 @@ import { Student, StudentClass, STUDENT_CLASSES, Page } from '../../models';
         </div>
       }
 
-      @if (!loading && students.length === 0) {
-        <div class="status info">No students found.</div>
+      @if (!loading && hasSearched && students.length === 0) {
+        <div class="status info">No students found matching your criteria.</div>
       }
     </div>
   `,
@@ -129,6 +158,7 @@ import { Student, StudentClass, STUDENT_CLASSES, Page } from '../../models';
       gap: 24px;
       margin-bottom: 20px;
       flex-wrap: wrap;
+      align-items: flex-end;
     }
     .filter-group {
       display: flex;
@@ -140,14 +170,17 @@ import { Student, StudentClass, STUDENT_CLASSES, Page } from '../../models';
       padding: 8px;
       border: 1px solid #ddd;
       border-radius: 4px;
+      height: 38px;
     }
-    .filter-group .btn {
-      margin-top: 4px;
+    .btn-group .btn-row {
+      display: flex;
+      gap: 8px;
     }
     .export-group {
       display: flex;
       flex-direction: column;
       gap: 4px;
+      margin-left: auto;
     }
     .export-buttons {
       display: flex;
@@ -155,6 +188,7 @@ import { Student, StudentClass, STUDENT_CLASSES, Page } from '../../models';
     }
     .export-buttons .btn {
       padding: 8px 12px;
+      min-width: 90px;
     }
     .pagination {
       display: flex;
@@ -173,15 +207,18 @@ import { Student, StudentClass, STUDENT_CLASSES, Page } from '../../models';
     }
   `]
 })
-export class ReportComponent implements OnInit {
+export class ReportComponent {
   private studentService = inject(StudentService);
+  private cdr = inject(ChangeDetectorRef);
 
   classes = STUDENT_CLASSES;
   students: Student[] = [];
   loading = false;
+  hasSearched = false;
   errorMessage = '';
   exportMessage = '';
   exporting = false;
+  exportingType: 'csv' | 'excel' | 'pdf' | null = null;
 
   // Filters
   searchId: number | undefined;
@@ -193,10 +230,6 @@ export class ReportComponent implements OnInit {
   totalPages = 0;
   totalElements = 0;
 
-  ngOnInit() {
-    this.loadStudents();
-  }
-
   search() {
     this.currentPage = 0;
     this.loadStudents();
@@ -204,8 +237,13 @@ export class ReportComponent implements OnInit {
 
   clearSearch() {
     this.searchId = undefined;
-    this.currentPage = 0;
-    this.loadStudents();
+    this.selectedClass = undefined;
+    this.hasSearched = false;
+    this.students = [];
+    this.totalPages = 0;
+    this.totalElements = 0;
+    this.errorMessage = '';
+    this.exportMessage = '';
   }
 
   goToPage(page: number) {
@@ -217,6 +255,7 @@ export class ReportComponent implements OnInit {
 
   loadStudents() {
     this.loading = true;
+    this.hasSearched = true;
     this.errorMessage = '';
     this.exportMessage = '';
 
@@ -234,12 +273,16 @@ export class ReportComponent implements OnInit {
           this.totalElements = page.totalElements;
         } else {
           this.errorMessage = response.message;
+          this.students = [];
         }
         this.loading = false;
+        this.cdr.detectChanges();
       },
       error: (err) => {
-        this.errorMessage = 'Failed to load students: ' + (err.message || 'Unknown error');
+        this.errorMessage = 'Failed to load students: ' + (err.error?.message || err.message || 'Unknown error');
+        this.students = [];
         this.loading = false;
+        this.cdr.detectChanges();
       }
     });
   }
@@ -258,6 +301,7 @@ export class ReportComponent implements OnInit {
 
   private export(type: 'csv' | 'excel' | 'pdf') {
     this.exporting = true;
+    this.exportingType = type;
     this.exportMessage = '';
     this.errorMessage = '';
 
@@ -276,10 +320,14 @@ export class ReportComponent implements OnInit {
           this.errorMessage = response.message;
         }
         this.exporting = false;
+        this.exportingType = null;
+        this.cdr.detectChanges();
       },
       error: (err) => {
-        this.errorMessage = 'Export failed: ' + (err.message || 'Unknown error');
+        this.errorMessage = 'Export failed: ' + (err.error?.message || err.message || 'Unknown error');
         this.exporting = false;
+        this.exportingType = null;
+        this.cdr.detectChanges();
       }
     });
   }

@@ -1,4 +1,4 @@
-import { Component, inject, ChangeDetectorRef } from '@angular/core';
+import { Component, inject, ChangeDetectorRef, OnDestroy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { StudentService } from '../../services/student.service';
@@ -33,13 +33,17 @@ import { JobInfo } from '../../models';
         {{ isProcessing ? 'Generating...' : 'Generate Excel' }}
       </button>
 
-      <!-- Progress section -->
-      @if (isProcessing && jobInfo) {
+      <!-- Progress section - show immediately when processing starts -->
+      @if (isProcessing) {
         <div class="progress-section">
           <div class="progress-bar">
-            <div class="fill" [style.width.%]="jobInfo.progress"></div>
+            <div class="fill" [style.width.%]="jobInfo?.progress || 0"></div>
           </div>
-          <p>{{ jobInfo.progress }}% - {{ jobInfo.processedCount | number }} / {{ jobInfo.totalCount | number }} records</p>
+          @if (jobInfo) {
+            <p>{{ jobInfo.progress }}% - {{ jobInfo.processedCount | number }} / {{ jobInfo.totalCount | number }} records</p>
+          } @else {
+            <p>Starting...</p>
+          }
         </div>
       }
 
@@ -49,6 +53,8 @@ import { JobInfo } from '../../models';
           <strong>Done!</strong> Excel file generated successfully.
           <br/>
           <small>Location: {{ jobInfo?.result }}</small>
+          <br/>
+          <small>Completed in {{ elapsedTime }}</small>
         </div>
       }
 
@@ -56,6 +62,8 @@ import { JobInfo } from '../../models';
       @if (jobInfo?.status === 'FAILED') {
         <div class="status error">
           <strong>Error:</strong> {{ jobInfo?.result }}
+          <br/>
+          <small>Failed after {{ elapsedTime }}</small>
         </div>
       }
 
@@ -75,7 +83,7 @@ import { JobInfo } from '../../models';
     }
   `]
 })
-export class GenerateComponent {
+export class GenerateComponent implements OnDestroy {
   private studentService = inject(StudentService);
   private cdr = inject(ChangeDetectorRef);
 
@@ -83,92 +91,90 @@ export class GenerateComponent {
   isProcessing = false;
   jobInfo: JobInfo | null = null;
   errorMessage = '';
+  elapsedTime = '';
 
   private pollingInterval: any;
+  private startTime: number = 0;
 
   generate() {
     this.isProcessing = true;
     this.jobInfo = null;
     this.errorMessage = '';
-
-    console.log('Starting generation with count:', this.recordCount);
+    this.elapsedTime = '';
+    this.startTime = Date.now();
+    this.cdr.detectChanges();
 
     this.studentService.generateExcel(this.recordCount).subscribe({
       next: (response) => {
-        console.log('Generate response:', response);
-
         if (response.success) {
-          const jobId = response.data.jobId;
-          console.log('Job started with ID:', jobId);
-          this.startPolling(jobId);
+          this.startPolling(response.data.jobId);
         } else {
-          console.warn('Generate failed:', response.message);
           this.errorMessage = response.message;
           this.isProcessing = false;
+          this.cdr.detectChanges();
         }
       },
       error: (err) => {
-        console.error('Generate error:', err);
         this.errorMessage = 'Failed to start generation: ' + (err.message || 'Unknown error');
         this.isProcessing = false;
+        this.cdr.detectChanges();
       }
     });
   }
 
   private startPolling(jobId: string) {
-    console.log('Starting polling for jobId:', jobId);
-
-    // Poll immediately first
     this.pollStatus(jobId);
 
-    // Poll again after 2 seconds to catch fast jobs
     setTimeout(() => {
       if (this.isProcessing) {
         this.pollStatus(jobId);
       }
     }, 2000);
 
-    // Then poll every 10 seconds
     this.pollingInterval = setInterval(() => {
       this.pollStatus(jobId);
     }, 10000);
   }
 
   private pollStatus(jobId: string) {
-    console.log('Polling status for jobId:', jobId);
-
     this.studentService.getJobStatus(jobId).subscribe({
       next: (response) => {
-        console.log('Status response:', response);
-        console.log('Job info:', response.data);
-
         if (response.success) {
           this.jobInfo = response.data;
-          console.log('Progress:', this.jobInfo.progress, '%');
-          console.log('Processed:', this.jobInfo.processedCount, '/', this.jobInfo.totalCount);
-          console.log('isProcessing:', this.isProcessing, 'jobInfo:', this.jobInfo);
 
           if (this.jobInfo.status === 'COMPLETED' || this.jobInfo.status === 'FAILED') {
-            console.log('Job finished with status:', this.jobInfo.status);
+            this.elapsedTime = this.formatElapsedTime(Date.now() - this.startTime);
             this.stopPolling();
             this.isProcessing = false;
           }
 
-          // Force Angular to detect changes
           this.cdr.detectChanges();
-          console.log('Change detection triggered');
-        } else {
-          console.warn('Response not successful:', response);
         }
       },
       error: (err) => {
-        console.error('Polling error:', err);
         this.errorMessage = 'Failed to check status: ' + err.message;
+        this.elapsedTime = this.formatElapsedTime(Date.now() - this.startTime);
         this.stopPolling();
         this.isProcessing = false;
         this.cdr.detectChanges();
       }
     });
+  }
+
+  private formatElapsedTime(ms: number): string {
+    const seconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+
+    if (hours > 0) {
+      return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
+    } else if (minutes > 0) {
+      return `${minutes}m ${seconds % 60}s`;
+    } else if (seconds > 0) {
+      return `${seconds}.${Math.floor((ms % 1000) / 100)}s`;
+    } else {
+      return `${ms}ms`;
+    }
   }
 
   private stopPolling() {
