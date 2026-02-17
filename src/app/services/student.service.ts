@@ -136,4 +136,9 @@ export class StudentService {
       { params }
     );
   }
+
+  // Download generated file by jobId
+  downloadFile(jobId: string): void {
+    window.open(`${this.apiUrl}/download/${jobId}`, '_blank');
+  }
 }

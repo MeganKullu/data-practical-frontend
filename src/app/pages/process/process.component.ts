@@ -162,7 +162,13 @@ export class ProcessComponent implements OnDestroy {
         if (response.success) {
           this.jobInfo = response.data;
 
-          if (this.jobInfo.status === 'COMPLETED' || this.jobInfo.status === 'FAILED') {
+          if (this.jobInfo.status === 'COMPLETED') {
+            this.elapsedTime = this.formatElapsedTime(Date.now() - this.startTime);
+            this.stopPolling();
+            this.isProcessing = false;
+            // Auto-download the file
+            this.studentService.downloadFile(jobId);
+          } else if (this.jobInfo.status === 'FAILED') {
             this.elapsedTime = this.formatElapsedTime(Date.now() - this.startTime);
             this.stopPolling();
             this.isProcessing = false;
