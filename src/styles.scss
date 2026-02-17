@@ -1,1 +1,257 @@
-/* You can add global styles to this file, and also import other style files */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background: #f8f9fa;
+  color: #212529;
+  line-height: 1.6;
+  font-size: 14px;
+}
+
+.app-container {
+  display: flex;
+  min-height: 100vh;
+}
+
+// Sidebar
+.sidebar {
+  width: 220px;
+  background: #212529;
+  color: #fff;
+  padding: 20px 0;
+  position: fixed;
+  height: 100vh;
+  left: 0;
+  top: 0;
+}
+
+.sidebar .logo {
+  padding: 0 20px 20px;
+  border-bottom: 1px solid #343a40;
+  margin-bottom: 20px;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+}
+
+.sidebar nav {
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar nav a {
+  color: #adb5bd;
+  text-decoration: none;
+  padding: 12px 20px;
+  transition: all 0.15s;
+  border-left: 3px solid transparent;
+}
+
+.sidebar nav a:hover {
+  background: #343a40;
+  color: #fff;
+}
+
+.sidebar nav a.active {
+  background: #343a40;
+  color: #fff;
+  border-left-color: #fff;
+}
+
+// Main content
+main {
+  margin-left: 220px;
+  flex: 1;
+  padding: 30px;
+  min-height: 100vh;
+}
+
+.page {
+  background: #fff;
+  border-radius: 6px;
+  padding: 24px;
+  border: 1px solid #dee2e6;
+}
+
+.page h2 {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #212529;
+}
+
+.page > p {
+  color: #6c757d;
+  margin-bottom: 24px;
+}
+
+// Forms
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 500;
+  color: #495057;
+}
+
+.form-group input,
+.form-group select {
+  width: 100%;
+  max-width: 280px;
+  padding: 10px 12px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 14px;
+  background: #fff;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: #495057;
+  box-shadow: 0 0 0 2px rgba(73, 80, 87, 0.1);
+}
+
+// Buttons
+.btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-primary {
+  background: #212529;
+  color: #fff;
+}
+
+.btn-primary:hover {
+  background: #000;
+}
+
+.btn-primary:disabled {
+  background: #adb5bd;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: #fff;
+  color: #212529;
+  border: 1px solid #adb5bd;
+}
+
+.btn-secondary:hover {
+  background: #e9ecef;
+  border-color: #868e96;
+}
+
+.btn-secondary:disabled {
+  color: #adb5bd;
+  cursor: not-allowed;
+}
+
+// Progress
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  background: #e9ecef;
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 20px 0;
+}
+
+.progress-bar .fill {
+  height: 100%;
+  background: #212529;
+  transition: width 0.3s;
+}
+
+// Status
+.status {
+  padding: 14px 16px;
+  border-radius: 4px;
+  margin: 20px 0;
+  font-size: 14px;
+}
+
+.status.success {
+  background: #f8f9fa;
+  border: 1px solid #212529;
+  color: #212529;
+}
+
+.status.error {
+  background: #fff5f5;
+  border: 1px solid #868e96;
+  color: #495057;
+}
+
+.status.info {
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  color: #495057;
+}
+
+// Tables
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+th, td {
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 1px solid #e9ecef;
+}
+
+th {
+  background: #f8f9fa;
+  font-weight: 600;
+  color: #495057;
+  text-transform: uppercase;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+}
+
+tr:hover td {
+  background: #f8f9fa;
+}
+
+// File input
+.file-input-wrapper {
+  margin: 20px 0;
+}
+
+.file-input-wrapper label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: #495057;
+}
+
+.file-input-wrapper input[type="file"] {
+  padding: 12px;
+  border: 1px dashed #ced4da;
+  border-radius: 4px;
+  width: 100%;
+  max-width: 400px;
+  background: #f8f9fa;
+  cursor: pointer;
+}
+
+.file-input-wrapper input[type="file"]:hover {
+  border-color: #adb5bd;
+}
